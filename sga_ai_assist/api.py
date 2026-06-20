@@ -22,6 +22,9 @@ def health() -> dict[str, str]:
 async def transcribe(
     file: UploadFile = File(...),
     diarize: bool = Form(True),
+    align: bool = Form(True),
+    require_align: bool = Form(False),
+    align_model: str | None = Form(None),
     min_speakers: int | None = Form(None),
     max_speakers: int | None = Form(None),
     language: str | None = Form(None),
@@ -38,6 +41,9 @@ async def transcribe(
                 audio_file.name,
                 TranscriptionOptions(
                     diarize=diarize,
+                    align=align,
+                    require_align=require_align,
+                    align_model=align_model,
                     min_speakers=min_speakers,
                     max_speakers=max_speakers,
                     language=language,

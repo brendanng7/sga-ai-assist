@@ -11,6 +11,9 @@ from .config import WhisperXSettings
 @dataclass(frozen=True)
 class TranscriptionOptions:
     diarize: bool = True
+    align: bool = True
+    require_align: bool = False
+    align_model: str | None = None
     min_speakers: int | None = None
     max_speakers: int | None = None
     language: str | None = None
@@ -32,38 +35,38 @@ class WhisperXTranscriber:
 
         whisperx = _import_whisperx()
         audio = whisperx.load_audio(str(audio_path))
+        language = options.language or self.settings.language
+        warnings: list[str] = []
+        alignment = {
+            "enabled": options.align,
+            "status": "skipped" if not options.align else "pending",
+            "model": options.align_model or self.settings.align_model,
+            "error": None,
+        }
 
         model_kwargs: dict[str, Any] = {
             "compute_type": self.settings.compute_type,
         }
         if self.settings.model_dir:
             model_kwargs["download_root"] = str(self.settings.model_dir)
-        if options.language:
-            model_kwargs["language"] = options.language
+        if language:
+            model_kwargs["language"] = language
 
         model = whisperx.load_model(
             self.settings.model,
             self.settings.device,
             **model_kwargs,
         )
-        result = model.transcribe(audio, batch_size=self.settings.batch_size)
+        result = model.transcribe(
+            audio,
+            batch_size=self.settings.batch_size,
+            language=language,
+        )
         del model
         _release_accelerator_memory()
 
-        align_model, metadata = whisperx.load_align_model(
-            language_code=result["language"],
-            device=self.settings.device,
-        )
-        result = whisperx.align(
-            result["segments"],
-            align_model,
-            metadata,
-            audio,
-            self.settings.device,
-            return_char_alignments=False,
-        )
-        del align_model
-        _release_accelerator_memory()
+        if options.align:
+            result = self._align(whisperx, audio, result, alignment, warnings, options)
 
         diarize_segments = None
         if options.diarize:
@@ -75,9 +78,58 @@ class WhisperXTranscriber:
             "settings": _public_settings(self.settings),
             "options": asdict(options),
             "language": result.get("language"),
+            "alignment": alignment,
+            "warnings": warnings,
             "segments": result.get("segments", []),
             "diarization": _serialize_diarization(diarize_segments),
         }
+
+    def _align(
+        self,
+        whisperx: Any,
+        audio: Any,
+        result: dict[str, Any],
+        alignment: dict[str, Any],
+        warnings: list[str],
+        options: TranscriptionOptions,
+    ) -> dict[str, Any]:
+        align_model_name = options.align_model or self.settings.align_model
+        try:
+            align_model, metadata = whisperx.load_align_model(
+                language_code=result["language"],
+                device=self.settings.device,
+                model_name=align_model_name,
+                model_dir=(
+                    str(self.settings.model_dir) if self.settings.model_dir else None
+                ),
+            )
+        except ValueError as exc:
+            no_default_model = "No default align-model" in str(exc)
+            if align_model_name or options.require_align or not no_default_model:
+                raise
+            alignment["status"] = "skipped"
+            alignment["error"] = str(exc)
+            warnings.append(
+                "WhisperX has no default alignment model for detected language "
+                f"{result['language']!r}. Segment timestamps and diarization were kept, "
+                "but word-level timestamps were skipped. Pass --align-model with a "
+                "compatible wav2vec2 model to enable alignment."
+            )
+            return result
+
+        aligned = whisperx.align(
+            result["segments"],
+            align_model,
+            metadata,
+            audio,
+            self.settings.device,
+            return_char_alignments=False,
+        )
+        alignment["status"] = "completed"
+        alignment["model"] = align_model_name or metadata.get("language")
+        del align_model
+        _release_accelerator_memory()
+        return aligned
 
     def _diarize(
         self,

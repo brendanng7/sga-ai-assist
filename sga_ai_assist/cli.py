@@ -15,6 +15,10 @@ def main() -> None:
     parser.add_argument("audio", type=Path)
     parser.add_argument("--output", "-o", type=Path)
     parser.add_argument("--language")
+    parser.add_argument("--align", dest="align", action="store_true", default=True)
+    parser.add_argument("--no-align", dest="align", action="store_false")
+    parser.add_argument("--require-align", action="store_true")
+    parser.add_argument("--align-model")
     parser.add_argument("--diarize", dest="diarize", action="store_true", default=True)
     parser.add_argument("--no-diarize", dest="diarize", action="store_false")
     parser.add_argument("--min-speakers", type=int)
@@ -25,6 +29,9 @@ def main() -> None:
         args.audio,
         TranscriptionOptions(
             diarize=args.diarize,
+            align=args.align,
+            require_align=args.require_align,
+            align_model=args.align_model,
             min_speakers=args.min_speakers,
             max_speakers=args.max_speakers,
             language=args.language,
@@ -41,4 +48,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
