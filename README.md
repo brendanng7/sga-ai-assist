@@ -43,7 +43,17 @@ CPU works, but it is slower:
 ```bash
 WHISPERX_DEVICE=cpu
 WHISPERX_COMPUTE_TYPE=int8
+WHISPERX_THREADS=4
 ```
+
+For a 6-core / 12-thread CPU such as a Ryzen 5 3600, try:
+
+```bash
+WHISPERX_THREADS=6
+```
+
+If the machine becomes sluggish during transcription, reduce it to `4`. If it
+still has CPU headroom, try `8`.
 
 For NVIDIA CUDA:
 
@@ -169,3 +179,16 @@ WHISPERX_MODEL_DIR=./models
 ```
 
 The first run downloads models and can take a while.
+
+## CPU Speed Tuning
+
+On machines without an NVIDIA GPU, keep WhisperX on CPU:
+
+```bash
+WHISPERX_DEVICE=cpu
+WHISPERX_COMPUTE_TYPE=int8
+```
+
+The `WHISPERX_THREADS` setting controls faster-whisper's CPU worker threads
+during transcription. Start near the number of physical CPU cores, then adjust
+based on responsiveness and throughput.

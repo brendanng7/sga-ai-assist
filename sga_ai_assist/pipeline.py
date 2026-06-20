@@ -46,6 +46,7 @@ class WhisperXTranscriber:
 
         model_kwargs: dict[str, Any] = {
             "compute_type": self.settings.compute_type,
+            "threads": self.settings.threads,
         }
         if self.settings.model_dir:
             model_kwargs["download_root"] = str(self.settings.model_dir)
