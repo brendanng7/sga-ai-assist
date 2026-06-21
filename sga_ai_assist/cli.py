@@ -23,6 +23,11 @@ def main() -> None:
     parser.add_argument("--no-diarize", dest="diarize", action="store_false")
     parser.add_argument("--min-speakers", type=int)
     parser.add_argument("--max-speakers", type=int)
+    parser.add_argument("--categorize", dest="categorize", action="store_true")
+    parser.add_argument("--no-categorize", dest="categorize", action="store_false")
+    parser.set_defaults(categorize=None)
+    parser.add_argument("--slm-model")
+    parser.add_argument("--slm-prompt-file", type=Path)
     args = parser.parse_args()
 
     result = WhisperXTranscriber(get_settings()).transcribe(
@@ -35,6 +40,9 @@ def main() -> None:
             min_speakers=args.min_speakers,
             max_speakers=args.max_speakers,
             language=args.language,
+            categorize=args.categorize,
+            slm_model=args.slm_model,
+            slm_prompt_file=args.slm_prompt_file,
         ),
     )
     payload = json.dumps(result, indent=2, ensure_ascii=False)

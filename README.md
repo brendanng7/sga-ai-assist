@@ -7,6 +7,7 @@ Local speech-to-text and speaker diarization service powered by WhisperX.
 - Transcribes audio/video files with WhisperX.
 - Aligns words for improved timestamps.
 - Optionally assigns speaker labels with WhisperX diarization.
+- Optionally categorizes the transcript with a local small language model.
 - Exposes both a CLI and a local FastAPI upload endpoint.
 
 ## Requirements
@@ -15,6 +16,7 @@ Local speech-to-text and speaker diarization service powered by WhisperX.
 - `ffmpeg` available on `PATH`
 - A Hugging Face read token for diarization
 - Accepted access terms for the pyannote diarization model used by WhisperX
+- Optional: a local Ollama-compatible server for transcript categorization
 
 WhisperX documents the current install path as `pip install whisperx`, and diarization requires an HF token plus model access acceptance. See the upstream project: https://github.com/m-bain/whisperX
 
@@ -116,6 +118,19 @@ Transcription only:
 python -m sga_ai_assist.cli ./meeting.wav --no-diarize
 ```
 
+Transcribe, diarize, and categorize with a local SLM:
+
+```bash
+python -m sga_ai_assist.cli ./meeting.wav \
+  --language en \
+  --no-align \
+  --diarize \
+  --min-speakers 2 \
+  --max-speakers 2 \
+  --categorize \
+  --output outputs/meeting-categorized.json
+```
+
 ## API Usage
 
 Start the local server:
@@ -130,6 +145,7 @@ Upload an audio file:
 curl -F "file=@meeting.wav" \
   -F "diarize=true" \
   -F "align=true" \
+  -F "categorize=false" \
   -F "min_speakers=2" \
   -F "max_speakers=2" \
   http://127.0.0.1:8000/transcribe
@@ -140,6 +156,53 @@ The response includes segment timestamps, text, speaker labels when available, a
 The `alignment` response field reports whether word alignment completed or was
 skipped. Segment-level transcription and diarization can still succeed when
 alignment is skipped.
+
+## Local SLM Categorization
+
+After transcription and optional diarization, the pipeline can pass the transcript
+to a local small language model. The categorizer returns five top-level segments:
+
+- `Health`
+- `Social`
+- `Financial`
+- `WMTY`
+- `Others`
+
+The current implementation expects an Ollama-compatible local API:
+
+```bash
+ollama pull llama3.2:3b
+ollama serve
+```
+
+Then enable categorization per run:
+
+```bash
+python -m sga_ai_assist.cli ./meeting.wav --categorize --no-align
+```
+
+Or enable it by default in `.env`:
+
+```bash
+SLM_ENABLED=true
+SLM_PROVIDER=ollama
+SLM_MODEL=llama3.2:3b
+SLM_BASE_URL=http://127.0.0.1:11434
+SLM_PROMPT_FILE=prompts/slm_context.md
+SLM_TEMPERATURE=0
+SLM_TIMEOUT_SECONDS=180
+SLM_MAX_INPUT_CHARS=16000
+```
+
+The prompt is intentionally stored in `prompts/slm_context.md` so the category
+definitions, tone, and output instructions can be tuned later without changing
+Python code. You can also point to another prompt file:
+
+```bash
+python -m sga_ai_assist.cli ./meeting.wav \
+  --categorize \
+  --slm-prompt-file prompts/custom_context.md
+```
 
 ## FFmpeg 8 And TorchCodec
 

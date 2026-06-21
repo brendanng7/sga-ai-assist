@@ -28,6 +28,9 @@ async def transcribe(
     min_speakers: int | None = Form(None),
     max_speakers: int | None = Form(None),
     language: str | None = Form(None),
+    categorize: bool | None = Form(None),
+    slm_model: str | None = Form(None),
+    slm_prompt_file: str | None = Form(None),
 ) -> dict:
     suffix = Path(file.filename or "audio").suffix
     try:
@@ -47,6 +50,9 @@ async def transcribe(
                     min_speakers=min_speakers,
                     max_speakers=max_speakers,
                     language=language,
+                    categorize=categorize,
+                    slm_model=slm_model,
+                    slm_prompt_file=Path(slm_prompt_file) if slm_prompt_file else None,
                 ),
             )
     except ValueError as exc:

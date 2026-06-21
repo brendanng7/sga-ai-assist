@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import WhisperXSettings
+from .slm import CategorizationOptions, SlmCategorizer, disabled_categorization
 
 
 @dataclass(frozen=True)
@@ -17,6 +18,9 @@ class TranscriptionOptions:
     min_speakers: int | None = None
     max_speakers: int | None = None
     language: str | None = None
+    categorize: bool | None = None
+    slm_model: str | None = None
+    slm_prompt_file: Path | None = None
 
 
 class WhisperXTranscriber:
@@ -74,15 +78,33 @@ class WhisperXTranscriber:
             diarize_segments = self._diarize(whisperx, audio, options)
             result = whisperx.assign_word_speakers(diarize_segments, result)
 
+        should_categorize = (
+            self.settings.slm_enabled
+            if options.categorize is None
+            else options.categorize
+        )
+        if should_categorize:
+            categorization = SlmCategorizer(self.settings).categorize(
+                result.get("segments", []),
+                CategorizationOptions(
+                    enabled=True,
+                    model=options.slm_model,
+                    prompt_file=options.slm_prompt_file,
+                ),
+            )
+        else:
+            categorization = disabled_categorization(self.settings)
+
         return {
             "audio_file": str(audio_path),
             "settings": _public_settings(self.settings),
-            "options": asdict(options),
+            "options": _public_options(options),
             "language": result.get("language"),
             "alignment": alignment,
             "warnings": warnings,
             "segments": result.get("segments", []),
             "diarization": _serialize_diarization(diarize_segments),
+            "categorization": categorization,
         }
 
     def _align(
@@ -186,6 +208,15 @@ def _public_settings(settings: WhisperXSettings) -> dict[str, Any]:
     data = asdict(settings)
     data["hf_token"] = bool(settings.hf_token)
     data["model_dir"] = str(settings.model_dir) if settings.model_dir else None
+    data["slm_prompt_file"] = str(settings.slm_prompt_file)
+    return data
+
+
+def _public_options(options: TranscriptionOptions) -> dict[str, Any]:
+    data = asdict(options)
+    data["slm_prompt_file"] = (
+        str(options.slm_prompt_file) if options.slm_prompt_file else None
+    )
     return data
 
 
