@@ -1,0 +1,22 @@
+[project]
+name = "sga-ai-copilot"
+version = "0.1.0"
+description = "Simple local WhisperX transcription pipeline."
+requires-python = ">=3.10,<3.12"
+dependencies = [
+  "python-dotenv>=1,<2",
+  "whisperx>=3.4,<4",
+]
+
+[project.scripts]
+sga-copilot-transcribe = "sga_ai_copilot.cli:main"
+
+[tool.setuptools]
+packages = ["sga_ai_copilot"]
+
+[tool.setuptools.package-dir]
+sga_ai_copilot = "."
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
