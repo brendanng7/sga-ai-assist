@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import TranscriptionSettings
+from .slm import CopilotAnalyzer, disabled_analysis
 
 
 class SimpleTranscriber:
@@ -16,6 +17,9 @@ class SimpleTranscriber:
         self,
         audio_path: str | Path,
         language: str | None = None,
+        analyze: bool | None = None,
+        slm_model: str | None = None,
+        slm_context_file: Path | None = None,
     ) -> dict[str, Any]:
         audio_path = Path(audio_path)
         if not audio_path.exists():
@@ -49,11 +53,22 @@ class SimpleTranscriber:
             del model
             _release_accelerator_memory()
 
+        should_analyze = self.settings.slm_enabled if analyze is None else analyze
+        if should_analyze:
+            analysis = CopilotAnalyzer(self.settings).analyze(
+                result.get("segments", []),
+                model=slm_model,
+                context_file=slm_context_file,
+            )
+        else:
+            analysis = disabled_analysis(self.settings)
+
         return {
             "audio_file": str(audio_path),
             "settings": _public_settings(self.settings),
             "language": result.get("language"),
             "segments": result.get("segments", []),
+            "analysis": analysis,
         }
 
 
@@ -81,5 +96,5 @@ def _release_accelerator_memory() -> None:
 def _public_settings(settings: TranscriptionSettings) -> dict[str, Any]:
     data = asdict(settings)
     data["model_dir"] = str(settings.model_dir) if settings.model_dir else None
+    data["slm_context_file"] = str(settings.slm_context_file)
     return data
-
