@@ -25,8 +25,11 @@ You are an expert clinical and social data extraction assistant. Your task is to
 **3. Financial**
 * Document employment status, past career, and whether they need or requested financial support.
 
+**4. What Matters To You (WMTY)**
+* Document the priorities at their point in life and their reason.
+
 **4. Others**
-* Document the purpose of the visit and any follow-up contact information or future visit plans.
+* Document the schemes that was shared in the visit
 
 **Transcript to Analyze:**
 [INSERT RAW TRANSCRIPT TEXT HERE]

@@ -2,7 +2,7 @@
 
 Small local transcription pipeline. This project intentionally does only one
 thing first: turn an audio/video file into a transcript JSON. It can optionally
-send that transcript to a local SLM for structured analysis.
+send that transcript to an LLM API for structured analysis.
 
 No diarization. No alignment.
 
@@ -40,26 +40,23 @@ For a 6-core / 12-thread CPU, try:
 COPILOT_THREADS=6
 ```
 
-## Local SLM Defaults
+## LLM API Defaults
 
-The optional analysis stage expects an Ollama-compatible local server:
-
-```bash
-ollama pull llama3.1:8b
-ollama serve
-```
-
-Then configure:
+The optional analysis stage uses OpenRouter by default. Create an OpenRouter API
+key, then configure:
 
 ```bash
-COPILOT_SLM_ENABLED=false
-COPILOT_SLM_PROVIDER=ollama
-COPILOT_SLM_MODEL=llama3.1:8b
-COPILOT_SLM_BASE_URL=http://127.0.0.1:11434
-COPILOT_SLM_CONTEXT_FILE=prompts/context.md
-COPILOT_SLM_TEMPERATURE=0
-COPILOT_SLM_TIMEOUT_SECONDS=180
-COPILOT_SLM_MAX_INPUT_CHARS=16000
+COPILOT_LLM_ENABLED=false
+COPILOT_LLM_PROVIDER=openrouter
+COPILOT_LLM_MODEL=nvidia/nemotron-3-ultra-550b-a55b:free
+COPILOT_LLM_BASE_URL=https://openrouter.ai/api/v1
+COPILOT_LLM_API_KEY=sk-or-v1-your-key
+COPILOT_LLM_CONTEXT_FILE=prompts/context.md
+COPILOT_LLM_TEMPERATURE=0
+COPILOT_LLM_TIMEOUT_SECONDS=180
+COPILOT_LLM_MAX_INPUT_CHARS=16000
+COPILOT_LLM_HTTP_REFERER=
+COPILOT_LLM_APP_TITLE=SGA AI Copilot
 ```
 
 The default context prompt is the repository-level `prompts/context.md`.
@@ -72,7 +69,7 @@ From the parent repository:
 python -m sga_ai_copilot.cli meeting.wav --output sga_ai_copilot/outputs/meeting.json
 ```
 
-Transcribe and analyze with the local SLM:
+Transcribe and analyze with the LLM API:
 
 ```bash
 python -m sga_ai_copilot.cli meeting.wav \
@@ -86,15 +83,20 @@ Override language for one run:
 python -m sga_ai_copilot.cli meeting.wav --language en --output sga_ai_copilot/outputs/meeting.json
 ```
 
-Override the SLM model or context prompt for one run:
+Override the LLM model or context prompt for one run:
 
 ```bash
 python -m sga_ai_copilot.cli meeting.wav \
   --analyze \
-  --slm-model llama3.1:8b \
-  --slm-context-file prompts/context.md \
+  --llm-model nvidia/nemotron-3-ultra-550b-a55b:free \
+  --llm-context-file prompts/context.md \
   --output sga_ai_copilot/outputs/meeting-analyzed.json
 ```
+
+python -m sga_ai_copilot.cli sample.wav \
+  --analyze \
+  --llm-context-file prompts/context.md \
+  --output sga_ai_copilot/outputs/sample-analyzed.json
 
 Or from inside this folder after installing the console script:
 
@@ -126,8 +128,8 @@ sga-copilot-transcribe ../meeting.wav --output outputs/meeting.json
   ],
   "analysis": {
     "enabled": true,
-    "provider": "ollama",
-    "model": "llama3.1:8b",
+    "provider": "openrouter",
+    "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
     "context_file": "prompts/context.md",
     "format": "markdown",
     "content": "..."

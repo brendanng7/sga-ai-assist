@@ -20,19 +20,22 @@ class TranscriptionSettings:
     threads: int = 4
     language: str | None = "en"
     model_dir: Path | None = None
-    slm_enabled: bool = False
-    slm_provider: str = "ollama"
-    slm_model: str = "llama3.1:8b"
-    slm_base_url: str = "http://127.0.0.1:11434"
-    slm_context_file: Path = Path("prompts/context.md")
-    slm_temperature: float = 0.0
-    slm_timeout_seconds: int = 180
-    slm_max_input_chars: int = 16000
+    llm_enabled: bool = False
+    llm_provider: str = "openrouter"
+    llm_model: str = "nvidia/nemotron-3-ultra-550b-a55b:free"
+    llm_base_url: str = "https://openrouter.ai/api/v1"
+    llm_api_key: str | None = None
+    llm_context_file: Path = Path("prompts/context.md")
+    llm_temperature: float = 0.0
+    llm_timeout_seconds: int = 180
+    llm_max_input_chars: int = 16000
+    llm_http_referer: str | None = None
+    llm_app_title: str = "SGA AI Copilot"
 
 
 def get_settings() -> TranscriptionSettings:
     model_dir = os.getenv("COPILOT_MODEL_DIR")
-    context_file = os.getenv("COPILOT_SLM_CONTEXT_FILE", "prompts/context.md")
+    context_file = os.getenv("COPILOT_LLM_CONTEXT_FILE", "prompts/context.md")
     return TranscriptionSettings(
         model=os.getenv("COPILOT_WHISPER_MODEL", "small"),
         device=os.getenv("COPILOT_DEVICE", "cpu"),
@@ -41,14 +44,23 @@ def get_settings() -> TranscriptionSettings:
         threads=int(os.getenv("COPILOT_THREADS", "4")),
         language=os.getenv("COPILOT_LANGUAGE", "en") or None,
         model_dir=Path(model_dir).expanduser() if model_dir else None,
-        slm_enabled=_env_bool("COPILOT_SLM_ENABLED", False),
-        slm_provider=os.getenv("COPILOT_SLM_PROVIDER", "ollama"),
-        slm_model=os.getenv("COPILOT_SLM_MODEL", "llama3.1:8b"),
-        slm_base_url=os.getenv("COPILOT_SLM_BASE_URL", "http://127.0.0.1:11434"),
-        slm_context_file=Path(context_file).expanduser(),
-        slm_temperature=float(os.getenv("COPILOT_SLM_TEMPERATURE", "0")),
-        slm_timeout_seconds=int(os.getenv("COPILOT_SLM_TIMEOUT_SECONDS", "180")),
-        slm_max_input_chars=int(os.getenv("COPILOT_SLM_MAX_INPUT_CHARS", "16000")),
+        llm_enabled=_env_bool("COPILOT_LLM_ENABLED", False),
+        llm_provider=os.getenv("COPILOT_LLM_PROVIDER", "openrouter"),
+        llm_model=os.getenv(
+            "COPILOT_LLM_MODEL",
+            "nvidia/nemotron-3-ultra-550b-a55b:free",
+        ),
+        llm_base_url=os.getenv(
+            "COPILOT_LLM_BASE_URL",
+            "https://openrouter.ai/api/v1",
+        ),
+        llm_api_key=os.getenv("COPILOT_LLM_API_KEY") or None,
+        llm_context_file=Path(context_file).expanduser(),
+        llm_temperature=float(os.getenv("COPILOT_LLM_TEMPERATURE", "0")),
+        llm_timeout_seconds=int(os.getenv("COPILOT_LLM_TIMEOUT_SECONDS", "180")),
+        llm_max_input_chars=int(os.getenv("COPILOT_LLM_MAX_INPUT_CHARS", "16000")),
+        llm_http_referer=os.getenv("COPILOT_LLM_HTTP_REFERER") or None,
+        llm_app_title=os.getenv("COPILOT_LLM_APP_TITLE", "SGA AI Copilot"),
     )
 
 
