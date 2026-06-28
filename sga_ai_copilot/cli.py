@@ -15,24 +15,13 @@ def main() -> None:
     parser.add_argument("audio", type=Path)
     parser.add_argument("--output", "-o", type=Path)
     parser.add_argument("--language")
-    parser.add_argument("--analyze", dest="analyze", action="store_true")
-    parser.add_argument("--no-analyze", dest="analyze", action="store_false")
-    parser.set_defaults(analyze=None)
     parser.add_argument("--llm-model", "--slm-model", dest="llm_model")
-    parser.add_argument(
-        "--llm-context-file",
-        "--slm-context-file",
-        dest="llm_context_file",
-        type=Path,
-    )
     args = parser.parse_args()
 
     result = SimpleTranscriber(get_settings()).transcribe(
         args.audio,
         language=args.language,
-        analyze=args.analyze,
         llm_model=args.llm_model,
-        llm_context_file=args.llm_context_file,
     )
     payload = json.dumps(result, indent=2, ensure_ascii=False)
 

@@ -114,17 +114,6 @@ class CopilotAnalyzer:
             raise ValueError(f"Unexpected OpenRouter response shape: {body}") from exc
 
 
-def disabled_analysis(settings: TranscriptionSettings) -> dict[str, Any]:
-    return {
-        "enabled": False,
-        "provider": settings.llm_provider,
-        "model": settings.llm_model,
-        "context_file": str(settings.llm_context_file),
-        "format": "markdown",
-        "content": None,
-    }
-
-
 def _segments_to_transcript(segments: list[dict[str, Any]]) -> str:
     lines = []
     for segment in segments:
@@ -137,4 +126,3 @@ def _segments_to_transcript(segments: list[dict[str, Any]]) -> str:
         if text:
             lines.append(f"{timestamp}{text}")
     return "\n".join(lines)
-

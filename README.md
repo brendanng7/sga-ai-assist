@@ -1,257 +1,176 @@
-# SGA AI Assist - Local WhisperX Transcription
+# SGA AI Assist
 
-Local speech-to-text and speaker diarization service powered by WhisperX.
+Local audio transcription and analysis experiments for Singapore senior-support
+workflows.
 
-## What It Does
+The current recommended project is **SGA AI Copilot**:
 
-- Transcribes audio/video files with WhisperX.
-- Aligns words for improved timestamps.
-- Optionally assigns speaker labels with WhisperX diarization.
-- Optionally categorizes the transcript with a local small language model.
-- Exposes both a CLI and a local FastAPI upload endpoint.
+- simple WhisperX transcription
+- no diarization
+- no word alignment
+- automatic LLM API analysis using `prompts/context.md`
+
+The older `sga_ai_assist` package is still in this repository for reference, but
+it includes diarization/alignment paths that are slower and more complex.
+
+## Repository Layout
+
+```text
+sga_ai_copilot/       Current simple transcription + LLM analysis pipeline
+sga_ai_assist/        Earlier WhisperX diarization/alignment pipeline
+prompts/context.md    Default prompt for LLM analysis
+outputs/              Local generated outputs, ignored by Git
+models/               Optional local model cache, ignored by Git
+```
 
 ## Requirements
 
 - Python 3.10 or 3.11
-- `ffmpeg` available on `PATH`
-- A Hugging Face read token for diarization
-- Accepted access terms for the pyannote diarization model used by WhisperX
-- Optional: a local Ollama-compatible server for transcript categorization
+- `ffmpeg` on `PATH`
+- OpenRouter API key
+- WhisperX dependencies from `requirements.txt`
 
-WhisperX documents the current install path as `pip install whisperx`, and diarization requires an HF token plus model access acceptance. See the upstream project: https://github.com/m-bain/whisperX
+The pipeline accepts audio formats that `ffmpeg` can decode, including `.m4a`
+and `.wav`.
+
+On Ubuntu:
+
+```bash
+sudo apt install ffmpeg
+```
 
 ## Setup
+
+From the repository root:
 
 ```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -U pip
 pip install -r requirements.txt
-cp .env.example .env
 ```
 
-Edit `.env` and set:
+Create the Copilot environment file:
 
 ```bash
-HF_TOKEN=hf_your_token_here
-WHISPERX_LANGUAGE=en
+cp sga_ai_copilot/.env.example sga_ai_copilot/.env
 ```
 
-`WHISPERX_LANGUAGE=en` is recommended for Singaporean English recordings because
-Whisper can otherwise mis-detect the first 30 seconds as Malay (`ms`).
+Edit `sga_ai_copilot/.env`.
 
-CPU works, but it is slower:
+For CPU-only machines:
 
 ```bash
-WHISPERX_DEVICE=cpu
-WHISPERX_COMPUTE_TYPE=int8
-WHISPERX_THREADS=4
+COPILOT_WHISPER_MODEL=small
+COPILOT_DEVICE=cpu
+COPILOT_COMPUTE_TYPE=int8
+COPILOT_BATCH_SIZE=8
+COPILOT_THREADS=4
+COPILOT_LANGUAGE=en
 ```
 
-For a 6-core / 12-thread CPU such as a Ryzen 5 3600, try:
+For a 6-core / 12-thread CPU, try:
 
 ```bash
-WHISPERX_THREADS=6
+COPILOT_THREADS=6
 ```
 
-If the machine becomes sluggish during transcription, reduce it to `4`. If it
-still has CPU headroom, try `8`.
-
-For NVIDIA CUDA:
+For LLM analysis through OpenRouter:
 
 ```bash
-WHISPERX_DEVICE=cuda
-WHISPERX_COMPUTE_TYPE=float16
+COPILOT_LLM_PROVIDER=openrouter
+COPILOT_LLM_MODEL=nvidia/nemotron-3-ultra-550b-a55b:free
+COPILOT_LLM_BASE_URL=https://openrouter.ai/api/v1
+COPILOT_LLM_API_KEY=sk-or-v1-your-key
+COPILOT_LLM_TEMPERATURE=0
+COPILOT_LLM_TIMEOUT_SECONDS=180
+COPILOT_LLM_MAX_INPUT_CHARS=16000
+COPILOT_LLM_HTTP_REFERER=
+COPILOT_LLM_APP_TITLE=SGA AI Copilot
 ```
 
-## CLI Usage
+`COPILOT_LLM_HTTP_REFERER` can be blank. Keep `sga_ai_copilot/.env` private; it
+is ignored by Git.
 
-Transcribe and diarize:
+## Get An OpenRouter API Key
+
+1. Go to https://openrouter.ai.
+2. Sign in or create an account.
+3. Open **Keys** from your OpenRouter account dashboard.
+4. Create a new API key.
+5. Copy the key into `sga_ai_copilot/.env` as `COPILOT_LLM_API_KEY`.
+
+OpenRouter API keys usually start with `sk-or-`. Do not commit this key.
+
+## Run Locally
+
+Every run transcribes the audio and then sends the transcript to the configured
+LLM API for analysis.
 
 ```bash
-python -m sga_ai_assist.cli ./meeting.wav --diarize --output outputs/meeting.json
+python -m sga_ai_copilot.cli sample.m4a \
+  --output outputs/sample-analyzed.json
 ```
 
-Known two-speaker recording:
+Use a different OpenRouter model for one run:
 
 ```bash
-python -m sga_ai_assist.cli ./meeting.wav --diarize --min-speakers 2 --max-speakers 2
+python -m sga_ai_copilot.cli sample.m4a \
+  --llm-model openrouter/free \
+  --output outputs/sample-analyzed.json
 ```
 
-If Whisper detects Singaporean English as Malay, force English explicitly:
+Force English transcription:
 
 ```bash
-python -m sga_ai_assist.cli ./meeting.wav --language en --diarize --min-speakers 2 --max-speakers 2
-```
-
-If WhisperX detects a language without a built-in alignment model, such as Malay
-(`ms`), the app now keeps the transcript and diarization result and skips
-word-level alignment by default. To make that explicit:
-
-```bash
-python -m sga_ai_assist.cli ./meeting.wav --diarize --no-align --min-speakers 2 --max-speakers 2
-```
-
-If you have tested a compatible Hugging Face wav2vec2 alignment model for that
-language, pass it directly:
-
-```bash
-python -m sga_ai_assist.cli ./meeting.wav --diarize --align-model owner/model-name
-```
-
-You can also set it in `.env`:
-
-```bash
-WHISPERX_ALIGN_MODEL=owner/model-name
-```
-
-If the recording is actually Indonesian rather than Malay, try forcing
-Indonesian because WhisperX includes a default Indonesian alignment model:
-
-```bash
-python -m sga_ai_assist.cli ./meeting.wav --language id --diarize --min-speakers 2 --max-speakers 2
-```
-
-Transcription only:
-
-```bash
-python -m sga_ai_assist.cli ./meeting.wav --no-diarize
-```
-
-Transcribe, diarize, and categorize with a local SLM:
-
-```bash
-python -m sga_ai_assist.cli ./meeting.wav \
+python -m sga_ai_copilot.cli sample.m4a \
   --language en \
-  --no-align \
-  --diarize \
-  --min-speakers 2 \
-  --max-speakers 2 \
-  --categorize \
-  --output outputs/meeting-categorized.json
+  --output outputs/sample-analyzed.json
 ```
 
-## API Usage
+## Output Shape
 
-Start the local server:
-
-```bash
-uvicorn sga_ai_assist.api:app --host 127.0.0.1 --port 8000
+```json
+{
+  "audio_file": "sample.m4a",
+  "settings": {
+    "model": "small",
+    "device": "cpu",
+    "compute_type": "int8",
+    "batch_size": 8,
+    "threads": 4,
+    "language": "en",
+    "model_dir": null,
+    "llm_provider": "openrouter",
+    "llm_model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "llm_base_url": "https://openrouter.ai/api/v1",
+    "llm_api_key": true,
+    "llm_context_file": "prompts/context.md"
+  },
+  "language": "en",
+  "segments": [
+    {
+      "start": 0.0,
+      "end": 5.0,
+      "text": "..."
+    }
+  ],
+  "analysis": {
+    "enabled": true,
+    "provider": "openrouter",
+    "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "context_file": "prompts/context.md",
+    "format": "markdown",
+    "content": "..."
+  }
+}
 ```
 
-Upload an audio file:
+## Notes
 
-```bash
-curl -F "file=@meeting.wav" \
-  -F "diarize=true" \
-  -F "align=true" \
-  -F "categorize=false" \
-  -F "min_speakers=2" \
-  -F "max_speakers=2" \
-  http://127.0.0.1:8000/transcribe
-```
-
-The response includes segment timestamps, text, speaker labels when available, and word-level timestamps where WhisperX alignment can produce them.
-
-The `alignment` response field reports whether word alignment completed or was
-skipped. Segment-level transcription and diarization can still succeed when
-alignment is skipped.
-
-## Local SLM Categorization
-
-After transcription and optional diarization, the pipeline can pass the transcript
-to a local small language model. The categorizer returns five top-level segments:
-
-- `Health`
-- `Social`
-- `Financial`
-- `WMTY`
-- `Others`
-
-The current implementation expects an Ollama-compatible local API:
-
-```bash
-ollama pull llama3.2:3b
-ollama serve
-```
-
-Then enable categorization per run:
-
-```bash
-python -m sga_ai_assist.cli ./meeting.wav --categorize --no-align
-```
-
-Or enable it by default in `.env`:
-
-```bash
-SLM_ENABLED=true
-SLM_PROVIDER=ollama
-SLM_MODEL=llama3.2:3b
-SLM_BASE_URL=http://127.0.0.1:11434
-SLM_PROMPT_FILE=prompts/slm_context.md
-SLM_TEMPERATURE=0
-SLM_TIMEOUT_SECONDS=180
-SLM_MAX_INPUT_CHARS=16000
-```
-
-The prompt is intentionally stored in `prompts/slm_context.md` so the category
-definitions, tone, and output instructions can be tuned later without changing
-Python code. You can also point to another prompt file:
-
-```bash
-python -m sga_ai_assist.cli ./meeting.wav \
-  --categorize \
-  --slm-prompt-file prompts/custom_context.md
-```
-
-## FFmpeg 8 And TorchCodec
-
-On Ubuntu machines with FFmpeg 8, `pyannote.audio` may warn that `torchcodec`
-cannot load FFmpeg shared libraries. This project passes preloaded waveform data
-into diarization, so that warning is usually not the failure you need to chase
-first. The run shown above failed because Malay alignment is unsupported by
-default, not because of FFmpeg.
-
-If you later need pyannote's built-in decoder directly, install a TorchCodec
-version compatible with your PyTorch version and FFmpeg shared libraries.
-
-## Docker
-
-CPU container:
-
-```bash
-docker build -t sga-ai-assist .
-docker run --rm -p 8000:8000 --env-file .env sga-ai-assist
-```
-
-For NVIDIA GPU acceleration, install the NVIDIA container runtime on the host and pass GPU access:
-
-```bash
-docker run --rm --gpus all -p 8000:8000 --env-file .env \
-  -e WHISPERX_DEVICE=cuda \
-  -e WHISPERX_COMPUTE_TYPE=float16 \
-  sga-ai-assist
-```
-
-## Local Model Storage
-
-By default, WhisperX uses its normal model cache. To keep models inside this workspace:
-
-```bash
-WHISPERX_MODEL_DIR=./models
-```
-
-The first run downloads models and can take a while.
-
-## CPU Speed Tuning
-
-On machines without an NVIDIA GPU, keep WhisperX on CPU:
-
-```bash
-WHISPERX_DEVICE=cpu
-WHISPERX_COMPUTE_TYPE=int8
-```
-
-The `WHISPERX_THREADS` setting controls faster-whisper's CPU worker threads
-during transcription. Start near the number of physical CPU cores, then adjust
-based on responsiveness and throughput.
+- `outputs/`, `.env`, `models/`, and local audio files are ignored by Git.
+- On AMD GPU machines, use CPU mode. The faster WhisperX GPU path is CUDA-first.
+- The first transcription run may download WhisperX model files.
+- Free OpenRouter models may be rate-limited or change availability. If the
+  configured model is unavailable, try another free model slug with
+  `--llm-model`.

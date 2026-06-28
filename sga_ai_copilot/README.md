@@ -1,8 +1,8 @@
 # SGA AI Copilot
 
 Small local transcription pipeline. This project intentionally does only one
-thing first: turn an audio/video file into a transcript JSON. It can optionally
-send that transcript to an LLM API for structured analysis.
+thing: turn an audio/video file into a transcript JSON and send that transcript
+to an LLM API for structured analysis.
 
 No diarization. No alignment.
 
@@ -19,7 +19,8 @@ pip install -e .
 cp .env.example .env
 ```
 
-You also need `ffmpeg` on `PATH`.
+You also need `ffmpeg` on `PATH`. The pipeline accepts audio formats that
+`ffmpeg` can decode, including `.m4a` and `.wav`.
 
 ## CPU Defaults
 
@@ -42,16 +43,14 @@ COPILOT_THREADS=6
 
 ## LLM API Defaults
 
-The optional analysis stage uses OpenRouter by default. Create an OpenRouter API
-key, then configure:
+The analysis stage uses OpenRouter by default. Create an OpenRouter API key, then
+configure:
 
 ```bash
-COPILOT_LLM_ENABLED=false
 COPILOT_LLM_PROVIDER=openrouter
 COPILOT_LLM_MODEL=nvidia/nemotron-3-ultra-550b-a55b:free
 COPILOT_LLM_BASE_URL=https://openrouter.ai/api/v1
 COPILOT_LLM_API_KEY=sk-or-v1-your-key
-COPILOT_LLM_CONTEXT_FILE=prompts/context.md
 COPILOT_LLM_TEMPERATURE=0
 COPILOT_LLM_TIMEOUT_SECONDS=180
 COPILOT_LLM_MAX_INPUT_CHARS=16000
@@ -59,56 +58,49 @@ COPILOT_LLM_HTTP_REFERER=
 COPILOT_LLM_APP_TITLE=SGA AI Copilot
 ```
 
-The default context prompt is the repository-level `prompts/context.md`.
+The analysis prompt is the repository-level `prompts/context.md`.
+
+## Get An OpenRouter API Key
+
+1. Go to https://openrouter.ai.
+2. Sign in or create an account.
+3. Open **Keys** from your OpenRouter account dashboard.
+4. Create a new API key.
+5. Copy the key into `sga_ai_copilot/.env` as `COPILOT_LLM_API_KEY`.
 
 ## Usage
 
 From the parent repository:
 
 ```bash
-python -m sga_ai_copilot.cli meeting.wav --output sga_ai_copilot/outputs/meeting.json
-```
-
-Transcribe and analyze with the LLM API:
-
-```bash
-python -m sga_ai_copilot.cli meeting.wav \
-  --analyze \
-  --output sga_ai_copilot/outputs/meeting-analyzed.json
+python -m sga_ai_copilot.cli sample.m4a --output sga_ai_copilot/outputs/sample-analyzed.json
 ```
 
 Override language for one run:
 
 ```bash
-python -m sga_ai_copilot.cli meeting.wav --language en --output sga_ai_copilot/outputs/meeting.json
+python -m sga_ai_copilot.cli sample.m4a --language en --output sga_ai_copilot/outputs/sample-analyzed.json
 ```
 
-Override the LLM model or context prompt for one run:
+Override the LLM model for one run:
 
 ```bash
-python -m sga_ai_copilot.cli meeting.wav \
-  --analyze \
+python -m sga_ai_copilot.cli sample.m4a \
   --llm-model nvidia/nemotron-3-ultra-550b-a55b:free \
-  --llm-context-file prompts/context.md \
-  --output sga_ai_copilot/outputs/meeting-analyzed.json
-```
-
-python -m sga_ai_copilot.cli sample.wav \
-  --analyze \
-  --llm-context-file prompts/context.md \
   --output sga_ai_copilot/outputs/sample-analyzed.json
+```
 
 Or from inside this folder after installing the console script:
 
 ```bash
-sga-copilot-transcribe ../meeting.wav --output outputs/meeting.json
+sga-copilot-transcribe ../sample.m4a --output outputs/sample-analyzed.json
 ```
 
 ## Output Shape
 
 ```json
 {
-  "audio_file": "../meeting.wav",
+  "audio_file": "../sample.m4a",
   "settings": {
     "model": "small",
     "device": "cpu",

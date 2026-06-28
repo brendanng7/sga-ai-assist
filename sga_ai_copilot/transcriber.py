@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import TranscriptionSettings
-from .llm import CopilotAnalyzer, disabled_analysis
+from .llm import CopilotAnalyzer
 
 
 class SimpleTranscriber:
@@ -17,9 +17,7 @@ class SimpleTranscriber:
         self,
         audio_path: str | Path,
         language: str | None = None,
-        analyze: bool | None = None,
         llm_model: str | None = None,
-        llm_context_file: Path | None = None,
     ) -> dict[str, Any]:
         audio_path = Path(audio_path)
         if not audio_path.exists():
@@ -53,15 +51,10 @@ class SimpleTranscriber:
             del model
             _release_accelerator_memory()
 
-        should_analyze = self.settings.llm_enabled if analyze is None else analyze
-        if should_analyze:
-            analysis = CopilotAnalyzer(self.settings).analyze(
-                result.get("segments", []),
-                model=llm_model,
-                context_file=llm_context_file,
-            )
-        else:
-            analysis = disabled_analysis(self.settings)
+        analysis = CopilotAnalyzer(self.settings).analyze(
+            result.get("segments", []),
+            model=llm_model,
+        )
 
         return {
             "audio_file": str(audio_path),
